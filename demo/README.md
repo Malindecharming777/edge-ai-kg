@@ -5,11 +5,12 @@ server (`python -m etl.download_data` first, to build `data/`).
 
 ## `demo.questions` — the whole catalog, as questions
 
-![Edge AI KG — 12 questions answered](edgeai-questions.gif)
+![Edge AI KG — 16 questions answered](edgeai-questions.gif)
 
-Walks all 12 queries in `benchmarks/queries.py`: the plain-English question, the
+Walks all 16 queries in `benchmarks/queries.py`: the plain-English question, the
 Cypher it becomes, the answer, and why the question is awkward without a graph.
-This is what the GIF above records.
+EA13-EA16 run on the real ONNX Runtime and MLPerf Tiny layers, so their answers
+are checkable against the upstream sources. This is what the GIF above records.
 
 ```bash
 python -m demo.questions                          # embedded
@@ -32,13 +33,14 @@ python -m demo.demo --url http://127.0.0.1:8080
 
 ## Re-recording the GIF
 
-The GIF is **long-form**: a tall terminal so the entire 12-question run renders
+The GIF is **long-form**: a tall terminal so the entire 16-question run renders
 in one vertical image with nothing scrolling off — the convention shared with
 `samyama-graph/case_studies/_lib/record_gif.sh`. 100 columns at font-size 18
 gives the 1105 px width every other case-study and `-kg` GIF uses; the height
-is whatever the run needs (currently 8,392 px).
+is whatever the run needs (currently 10,987 px for 16 questions).
 
 ```bash
+PYTHON=.venv/bin/python SG_URL=http://127.0.0.1:8080 scripts/record_gif.sh
 scripts/record_gif.sh                      # defaults: demo.questions -> demo/edgeai-questions.gif
 GIF_ROWS=400 scripts/record_gif.sh         # taller terminal
 SG_URL= scripts/record_gif.sh              # record against the embedded engine

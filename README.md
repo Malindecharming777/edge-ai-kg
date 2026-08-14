@@ -9,9 +9,9 @@ Real ONNX + ONNX Runtime + MLPerf Tiny data, plus a generated fleet for scale. E
 
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-blue" alt="License"></a>
 
-![Edge AI KG — 12 questions answered](demo/edgeai-questions.gif)
+![Edge AI KG — 16 questions answered](demo/edgeai-questions.gif)
 
-*The full [query catalog](benchmarks/queries.py) run end to end — each question, the Cypher it becomes, and the answer. Long-form: the whole run in one image, nothing scrolled off. Re-record with [`scripts/record_gif.sh`](scripts/record_gif.sh).*
+*All 16 [catalog queries](benchmarks/queries.py) run end to end — each question, the Cypher it becomes, and the answer. The last four run on real ONNX Runtime and MLPerf Tiny data. Long-form: the whole run in one image, nothing scrolled off. Re-record with [`scripts/record_gif.sh`](scripts/record_gif.sh).*
 
 ---
 

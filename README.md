@@ -7,6 +7,10 @@
 
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-blue" alt="License"></a>
 
+![Edge AI KG — 12 questions answered](demo/edgeai-questions.gif)
+
+*The full [query catalog](benchmarks/queries.py) run end to end: each question, the Cypher it becomes, and the answer.*
+
 ---
 
 ## The question this exists to answer
@@ -163,7 +167,7 @@ etl/          onnx_catalog.py (real data) + generate.py (synthetic) + loader.py
 schema/       edge_ai_kg.cypher — indexes and documented relationship shapes
 benchmarks/   the 12-query catalog + runner
 mcp_server/   7 MCP tools shaped around deployment questions
-demo/         narrated walkthrough
+demo/         two walkthroughs (question-driven + 6-beat story) + recorded gif
 docs/         schema, data provenance, engine notes
 DATASET_CARD.md  HF-style card: structure, provenance, intended + out-of-scope uses
 tests/        36 tests: parsing, fleet invariants, query correctness

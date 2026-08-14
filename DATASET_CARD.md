@@ -23,12 +23,13 @@ A property-graph dataset of **edge-AI deployment**: what neural-network
 operators a model needs, which kernels a given accelerator actually implements,
 and what it costs when those two sets do not line up.
 
-> ⚠️ **This dataset is mostly synthetic.** Only the ONNX operator catalog is
-> real. Vendor, board and SoC names are fictional, and every latency, power and
-> accuracy figure is generated. See [Real vs. synthetic](#real-vs-synthetic)
-> before using or quoting anything here.
+> ⚠️ **This dataset is part real, part synthetic, and the two must not be
+> conflated.** Every node carries a `provenance` property (`"real"` |
+> `"synthetic"`) and a `source`. Read
+> [Real vs. synthetic](#real-vs-synthetic) before using or quoting anything.
 
-**24,115 nodes · 73,825 edges · 15 node labels · 21 edge types**
+**25,145 nodes · 76,291 edges · 16 node labels · 22 edge types**
+**1,030 real nodes from 3 public sources · 24,115 generated**
 
 ---
 
@@ -71,15 +72,31 @@ English (identifiers, names and labels).
 
 This is the most important section of this card.
 
-### Real
+### Real — three public sources
 
-**The ONNX operator catalog** — 205 operators, parsed from
-[`onnx/onnx`](https://github.com/onnx/onnx) `docs/Operators.md`, Apache-2.0.
+| Source | License | Contributes | Real facts |
+|---|---|---|---|
+| [onnx/onnx](https://github.com/onnx/onnx) `docs/Operators.md` | Apache-2.0 | 205 `Operator` | name, domain, opset version, revision count |
+| [microsoft/onnxruntime](https://github.com/microsoft/onnxruntime) `docs/OperatorKernels.md` | MIT | 734 `Kernel`, 3 `Accelerator`, 170 extra `Operator` | which operator each execution provider implements, at which opset range, over how many tensor types |
+| [mlcommons/tiny_results_v1.2](https://github.com/mlcommons/tiny_results_v1.2) `summary.csv` | Apache-2.0 | 73 `Deployment`, 14 `Board`, 12 `SoC`, 7 `Vendor`, 5 `Runtime`, 3 `Accelerator`, 4 `BenchmarkTask`, 4 `Model` | measured throughput, accuracy, energy per inference on real commercial hardware |
 
-- `name`, `domain` (`ai.onnx` ×201, `ai.onnx.preview.training` ×4),
-  `since_version` and `version_count` are **real** values from the ONNX spec.
-- `category` and `is_control_flow` are **ours** — a coarse grouping defined in
-  `etl/onnx_catalog.py`, not part of the ONNX standard.
+**ONNX Runtime kernel coverage** (verifiable against the upstream doc):
+
+| Execution provider | Registrations | Distinct operators |
+|---|---:|---:|
+| `CPUExecutionProvider` | 293 | 293 |
+| `CUDAExecutionProvider` | 236 | 236 |
+| `DmlExecutionProvider` | 205 | 205 |
+
+**MLPerf Tiny v1.2** covers 7 organisations (Qualcomm, Renesas,
+STMicroelectronics, Syntiant, Bosch, Skymizer, and one independent submitter)
+across 14 boards and the four TinyML tasks — anomaly detection, image
+classification, keyword spotting, visual wake words. 18 of the 73 submissions
+include measured energy.
+
+The only fields we add on top of these are `category` and `is_control_flow` on
+`Operator` — a coarse grouping defined in `etl/onnx_catalog.py`, **not** part of
+the ONNX standard.
 
 ### Synthetic
 
@@ -132,21 +149,22 @@ scalar. It is good enough to make *structural* questions behave sensibly. It is
 
 | Label | Count | Fields |
 |---|---:|---|
-| `Kernel` | 21,844 | id, name, efficiency, is_fallback |
-| `Deployment` | 1,440 | id, latency_ms, power_mw, energy_mj, memory_kb, fallback_op_count, fallback_fraction, accelerator_kind, fits |
+| `Kernel` | 22,578 | id, name, efficiency, is_fallback |
+| `Deployment` | 1,513 | id, latency_ms, power_mw, energy_mj, memory_kb, fallback_op_count, fallback_fraction, accelerator_kind, fits |
 | `ModelVariant` | 240 | id, name, precision, size_kb, accuracy, format |
-| `Operator` | 205 | id, name, domain, since_version, version_count, category, is_control_flow |
-| `Board` | 120 | id, name, form_factor, price_usd, power_budget_mw, ram_kb, flash_kb, year, battery_powered |
-| `Accelerator` | 85 | id, name, kind, gops_int8, sram_kb, clock_mhz, opset_ceiling, energy_factor |
-| `Model` | 60 | id, name, family, task, params_k, macs_m |
-| `SoC` | 40 | id, name, process_nm, cpu_arch, cpu_mhz, cores |
+| `Operator` | 375 | id, name, domain, since_version, version_count, category, is_control_flow |
+| `Board` | 134 | id, name, form_factor, price_usd, power_budget_mw, ram_kb, flash_kb, year, battery_powered |
+| `Accelerator` | 91 | id, name, kind, gops_int8, sram_kb, clock_mhz, opset_ceiling, energy_factor |
+| `Model` | 64 | id, name, family, task, params_k, macs_m |
+| `SoC` | 52 | id, name, process_nm, cpu_arch, cpu_mhz, cores |
 | `ClinicalTask` | 18 | id, name, category, latency_budget_ms, min_sensitivity |
 | `SignalStage` | 16 | id, name, kind, window_ms, cost_kmacs |
 | `Sensor` | 14 | id, name, modality, sample_rate_hz, channels, adc_bits |
 | `Dataset` | 12 | id, name, source, subjects, hours, license |
-| `Vendor` | 8 | id, name, country |
-| `Runtime` | 7 | id, name, version, format |
+| `Vendor` | 15 | id, name, country |
+| `Runtime` | 13 | id, name, version, format |
 | `Certification` | 6 | id, name, body, class |
+| `BenchmarkTask` | 4 | id, name, code, dataset, metric, quality_target |
 
 Every node has a globally unique `id` of the form `<prefix>:<5-digit>`.
 
@@ -154,22 +172,22 @@ Every node has a globally unique `id` of the form `<prefix>:<5-digit>`.
 
 | Edge | From → To | Count |
 |---|---|---:|
-| `IMPLEMENTS` | Kernel → Operator | 21,844 |
-| `RUNS_ON` | Kernel → Accelerator | 21,844 |
-| `PROVIDED_BY` | Kernel → Runtime | 21,844 |
+| `IMPLEMENTS` | Kernel → Operator | 22,578 |
+| `RUNS_ON` | Kernel → Accelerator | 22,578 |
+| `PROVIDED_BY` | Kernel → Runtime | 22,578 |
 | `OF_VARIANT` | Deployment → ModelVariant | 1,440 |
-| `ON_BOARD` | Deployment → Board | 1,440 |
-| `VIA_RUNTIME` | Deployment → Runtime | 1,440 |
-| `USES_ACCELERATOR` | Deployment → Accelerator | 1,440 |
+| `ON_BOARD` | Deployment → Board | 1,513 |
+| `VIA_RUNTIME` | Deployment → Runtime | 1,500 |
+| `USES_ACCELERATOR` | Deployment → Accelerator | 1,451 |
 | `USES_OPERATOR` | Model → Operator `{count}`, SignalStage → Operator | 1,069 |
-| `TARGETS` | Runtime → Accelerator | 426 |
+| `TARGETS` | Runtime → Accelerator | 429 |
 | `VARIANT_OF` | ModelVariant → Model | 240 |
-| `MADE_BY` | SoC → Vendor, Board → Vendor | 160 |
-| `HAS_SOC` | Board → SoC | 120 |
+| `MADE_BY` | SoC → Vendor, Board → Vendor | 186 |
+| `HAS_SOC` | Board → SoC | 134 |
 | `CERTIFIED_FOR` | Board → Certification | 104 |
 | `HAS_ACCELERATOR` | SoC → Accelerator | 85 |
 | `TRAINED_ON` | Model → Dataset | 82 |
-| `SOLVES` | Model → ClinicalTask | 60 |
+| `SOLVES` | Model → ClinicalTask \| BenchmarkTask | 64 |
 | `PRECEDES` | SignalStage → Model | 60 |
 | `REQUIRES_SENSOR` | ClinicalTask → Sensor | 51 |
 | `NEXT_STAGE` | SignalStage → SignalStage | 40 |
@@ -199,11 +217,22 @@ the fallback cost".**
 Both artifacts are regenerable and therefore gitignored; `data/` is rebuilt with
 one command.
 
-| Path | Size | Contents |
-|---|---:|---|
-| `data/onnx/Operators.md` | 1.27 MB | Upstream ONNX source document (cached verbatim) |
-| `data/onnx/operators.json` | 0.04 MB | Parsed operator catalog + provenance |
-| `data/fleet/fleet.json` | 8.73 MB | Generated nodes and edges |
+| Path | Contents |
+|---|---|
+| `data/onnx/Operators.md` | Upstream ONNX operator document (cached verbatim) |
+| `data/onnx/operators.json` | Parsed operator catalog + provenance |
+| `data/onnxruntime/OperatorKernels.md` | Upstream ONNX Runtime kernel document |
+| `data/onnxruntime/kernels.json` | Parsed kernel registrations + provenance |
+| `data/mlperf-tiny/summary.csv` | Upstream MLPerf Tiny v1.2 summary |
+| `data/mlperf-tiny/results.json` | Parsed submissions + provenance |
+| `data/fleet/fleet.json` | Generated nodes and edges |
+
+### Prebuilt snapshot
+
+A `.sgsnap` of the full graph (~970 KB gzipped) is published at
+[`samyama-graph` releases, `kg-snapshots-v9`](https://github.com/samyama-ai/samyama-graph/releases/tag/kg-snapshots-v9)
+and imports in under a second. All 16 catalog queries are verified against the
+imported snapshot.
 
 ---
 
@@ -223,10 +252,25 @@ the questions are real.
 python -m etl.download_data --seed 20260814 --scale 1.0
 ```
 
-`--seed` fully determines the output: same seed and scale reproduce the same
-nodes, edges and ids byte-for-byte. `--scale` multiplies fleet size
-(`1.0` ≈ 24K nodes); the ONNX catalog is never scaled. The generator guarantees
-that every `ClinicalTask` has at least one `Model` at any scale.
+`--seed` fully determines the **synthetic** layer: same seed and scale reproduce
+the same nodes, edges and ids byte-for-byte. `--scale` multiplies fleet size
+(`1.0` ≈ 24.1K synthetic nodes). The generator guarantees that every
+`ClinicalTask` has at least one `Model` at any scale.
+
+The **real** layer is not scaled or seeded — it is whatever the upstream
+sources say. It is therefore reproducible only up to the upstream state at
+fetch time: `onnx/onnx` and `microsoft/onnxruntime` are fetched from `main` and
+will drift, while `mlcommons/tiny_results_v1.2` is a frozen published round and
+will not. Cached copies live under `data/` so a given build is re-loadable
+even after upstream moves.
+
+Load the layers independently:
+
+```bash
+python -m etl.loader --layers real        # 1,235 nodes / 2,466 edges, all real
+python -m etl.loader --layers synthetic   # generated fleet only
+python -m etl.loader                      # both (default)
+```
 
 ### Annotations
 
@@ -251,17 +295,32 @@ biosignal modalities (ECG, EEG, PPG, EMG) are schema-level concepts only —
 
 ### Out-of-scope uses
 
-**Do not** use this dataset to:
+**Filter on `provenance` first.** Almost every restriction below applies to the
+synthetic layer only; the real layer is citable within the terms of its
+upstream sources.
+
+**Do not** use the **synthetic** layer to:
 
 - **select hardware, or estimate real latency, power or cost** — the numbers are generated;
 - **train a model that predicts inference performance** — it would learn this cost model, not physics;
-- **compare real vendors, SoCs or NPUs** — the vendors do not exist;
+- **compare real vendors, SoCs or NPUs** — those vendors do not exist;
 - **make clinical, safety or regulatory claims** — `ClinicalTask` sensitivity thresholds and `Certification` mappings are illustrative;
 - **cite accuracy figures against MIT-BIH, PTB-XL, CHB-MIT or any named corpus** — no model here was trained or evaluated on them.
 
+**For the real layer**, the honest caveats are narrower but still real:
+
+- MLPerf Tiny results are **closed-division submissions under specific
+  conditions**; cite them as MLPerf results, with the round (v1.2), not as
+  general device benchmarks. MLCommons owns the MLPerf trademark and has its
+  own rules for citing results — follow those, not this card.
+- ONNX Runtime kernel coverage is a **snapshot of `main`** at fetch time, not a
+  release. It moves. Re-fetch before drawing conclusions.
+- Absence of a kernel in the table does not always mean an operator cannot run —
+  ORT can decompose or fall back in ways the registration table does not show.
+
 ### Known limitations
 
-1. **Heavily skewed to `Kernel`** — 21,844 of 24,115 nodes (91%) are kernels, and 3 edge types carry 89% of edges. Realistic (kernel libraries *are* the bulk), but it means whole-graph statistics are dominated by one label.
+1. **Heavily skewed to `Kernel`** — 22,578 of 25,145 nodes (90%) are kernels, and 3 edge types carry 89% of edges. Realistic (kernel libraries *are* the bulk), but it means whole-graph statistics are dominated by one label.
 2. **The cost model is the ground truth**, so any model trained on it recovers the model, not reality.
 3. **Operator categories are heuristic** — regex over operator names with a short override table; some assignments are debatable.
 4. **Uniform random structure** — real fleets cluster (vendors reuse IP, boards share SoC families). Sampling here is close to uniform, so the graph has less community structure than a real one.
@@ -283,7 +342,7 @@ countries were assigned for flavour and carry no meaning.
 Because the engine this was built against has query-shape bugs that return
 **plausible but wrong rows**, `tests/test_correctness.py` validates query
 *results* against ground truth recomputed in Python — not merely that queries
-run. 36 tests cover catalog parsing, fleet invariants (id uniqueness, edge
+run. 50 tests cover catalog parsing, fleet invariants (id uniqueness, edge
 endpoint integrity, `int8 == fp32 / 4`, opset ceilings respected, no internal
 fields leaking into properties) and query correctness.
 
@@ -296,7 +355,10 @@ sort key *and* actually returns sorted rows. See `docs/engine-notes.md`.
 ## Licensing
 
 - **This dataset and its generator**: Apache-2.0.
-- **ONNX operator catalog**: Apache-2.0, © the ONNX project contributors. `data/onnx/Operators.md` is redistributed verbatim under that licence.
+- **ONNX operator catalog**: Apache-2.0, © the ONNX project contributors.
+- **ONNX Runtime kernel registrations**: MIT, © Microsoft Corporation.
+- **MLPerf Tiny v1.2 results**: Apache-2.0, © MLCommons. "MLPerf" is a trademark of MLCommons; results are reproduced from the public v1.2 closed-division summary and should be cited per MLCommons' own policy.
+- Upstream source documents are cached under `data/` at build time rather than vendored into the repo.
 - Real project and corpus **names** appear as labels under nominative use. No affiliation with or endorsement by any named project, vendor or standards body is implied.
 
 ## Citation

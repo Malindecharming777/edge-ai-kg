@@ -23,7 +23,7 @@ SCHEMA_PATH = Path(__file__).resolve().parent.parent / "schema" / "edge_ai_kg.cy
 NODE_LABELS = [
     "Vendor", "SoC", "Accelerator", "Board", "Runtime", "Operator", "Kernel",
     "Model", "ModelVariant", "Sensor", "SignalStage", "ClinicalTask",
-    "Dataset", "Certification", "Deployment",
+    "BenchmarkTask", "Dataset", "Certification", "Deployment",
 ]
 
 
@@ -73,7 +73,10 @@ def reset_graph(client, graph: str) -> None:
               help="Regenerate the fleet instead of loading data/fleet/fleet.json.")
 @click.option("--reset/--no-reset", default=True, show_default=True,
               help="Delete existing nodes in the target graph first.")
-def main(url, graph, seed, scale, limit, regenerate, reset):
+@click.option("--layers", type=click.Choice(["all", "real", "synthetic"]),
+              default="all", show_default=True,
+              help="Load the real public-source subgraph, the generated fleet, or both.")
+def main(url, graph, seed, scale, limit, regenerate, reset, layers):
     started = time.time()
 
     if regenerate:
@@ -88,6 +91,17 @@ def main(url, graph, seed, scale, limit, regenerate, reset):
             click.echo(f"[1/4] no cached fleet; generating (seed={seed}, scale={scale}) ...")
             fleet = gen.generate(seed=seed, scale=scale)
             gen.write(fleet)
+
+    if layers == "synthetic":
+        click.echo("      layers: synthetic only")
+    else:
+        from etl import onnx_catalog, real_layer
+        if layers == "real":
+            fleet = gen.Fleet(seed=fleet.seed, scale=fleet.scale)
+        before = fleet.node_count
+        real_layer.build_real(fleet, onnx_catalog.load_cached())
+        click.echo(f"      layers: {layers} "
+                   f"(+{fleet.node_count - before:,} real nodes from public sources)")
 
     nodes = fleet.nodes
     edges = fleet.edges

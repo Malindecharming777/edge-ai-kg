@@ -2,13 +2,15 @@
 //
 // Node labels: Vendor, SoC, Accelerator, Board, Runtime, Operator, Kernel,
 //              Model, ModelVariant, Sensor, SignalStage, ClinicalTask,
-//              Dataset, Certification, Deployment
+//              BenchmarkTask, Dataset, Certification, Deployment
+//
+// Every node carries `provenance` ("real" | "synthetic") and `source`.
 //
 // Edge types:  MADE_BY, HAS_SOC, HAS_ACCELERATOR, TARGETS, IMPLEMENTS,
 //              RUNS_ON, PROVIDED_BY, USES_OPERATOR, VARIANT_OF, SOLVES,
 //              TRAINED_ON, REQUIRES_SENSOR, FEEDS, NEXT_STAGE, PRECEDES,
 //              OF_VARIANT, ON_BOARD, VIA_RUNTIME, USES_ACCELERATOR,
-//              CERTIFIED_FOR, GOVERNED_BY
+//              CERTIFIED_FOR, GOVERNED_BY, MEASURES
 //
 // This engine accepts `CREATE INDEX ON :Label(prop)`. It does NOT parse
 // `CREATE CONSTRAINT ... REQUIRE ... IS UNIQUE`; uniqueness of `id` is
@@ -30,6 +32,7 @@ CREATE INDEX ON :ClinicalTask(id);
 CREATE INDEX ON :Dataset(id);
 CREATE INDEX ON :Certification(id);
 CREATE INDEX ON :Deployment(id);
+CREATE INDEX ON :BenchmarkTask(id);
 
 // --- lookup indexes used by the benchmark queries ---
 CREATE INDEX ON :Operator(name);
@@ -38,6 +41,13 @@ CREATE INDEX ON :Accelerator(kind);
 CREATE INDEX ON :ModelVariant(precision);
 CREATE INDEX ON :ClinicalTask(category);
 CREATE INDEX ON :Model(family);
+
+// --- provenance: every node is stamped real | synthetic ---
+CREATE INDEX ON :Deployment(provenance);
+CREATE INDEX ON :Kernel(provenance);
+CREATE INDEX ON :Board(provenance);
+CREATE INDEX ON :Accelerator(provenance);
+CREATE INDEX ON :Kernel(execution_provider);
 
 // --- Relationship shapes (documentation only) ---
 // (:Board)-[:HAS_SOC]->(:SoC)-[:HAS_ACCELERATOR]->(:Accelerator)
@@ -59,3 +69,5 @@ CREATE INDEX ON :Model(family);
 // (:Deployment)-[:ON_BOARD]->(:Board)
 // (:Deployment)-[:VIA_RUNTIME]->(:Runtime)
 // (:Deployment)-[:USES_ACCELERATOR]->(:Accelerator)
+// (:Deployment)-[:MEASURES]->(:Model)          -- real MLPerf Tiny submissions
+// (:Model)-[:SOLVES]->(:BenchmarkTask)        -- real MLPerf Tiny tasks

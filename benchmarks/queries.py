@@ -44,7 +44,7 @@ ORDER BY category
                       "operator to avoid at architecture-design time."),
         "cypher": """
 MATCH (m:Model)-[:USES_OPERATOR]->(op:Operator)
-WITH op, count(DISTINCT m) AS models_using
+WITH op, count(DISTINCT m.id) AS models_using
 OPTIONAL MATCH (k:Kernel)-[:IMPLEMENTS]->(op)
 WITH op, models_using, count(k) AS kernel_count
 RETURN op.name AS operator, op.category AS category,
@@ -110,8 +110,8 @@ LIMIT 12
         "why_graph": "Aggregation over a 2-hop path, grouped by a node property.",
         "cypher": """
 MATCH (a:Accelerator)<-[:RUNS_ON]-(k:Kernel)-[:IMPLEMENTS]->(op:Operator)
-WITH a.kind AS accelerator_kind, count(DISTINCT op) AS operators_covered,
-     count(DISTINCT a) AS accelerators
+WITH a.kind AS accelerator_kind, count(DISTINCT op.id) AS operators_covered,
+     count(DISTINCT a.id) AS accelerators
 RETURN accelerator_kind, accelerators, operators_covered
 ORDER BY operators_covered DESC
 """,
@@ -128,8 +128,8 @@ ORDER BY operators_covered DESC
 MATCH (op:Operator)<-[:USES_OPERATOR]-(m:Model)<-[:VARIANT_OF]-(v:ModelVariant)
       <-[:OF_VARIANT]-(d:Deployment)-[:ON_BOARD]->(b:Board)
 WHERE op.name = "Conv" AND d.fits = 1
-RETURN op.name AS operator, count(DISTINCT d) AS deployments_at_risk,
-       count(DISTINCT b) AS boards_affected, count(DISTINCT m) AS models_affected
+RETURN op.name AS operator, count(DISTINCT d.id) AS deployments_at_risk,
+       count(DISTINCT b.id) AS boards_affected, count(DISTINCT m.id) AS models_affected
 """,
     },
     {
@@ -162,7 +162,7 @@ LIMIT 10
 MATCH (a:Accelerator)<-[:RUNS_ON]-(k:Kernel)-[:PROVIDED_BY]->(r:Runtime)
 MATCH (k)-[:IMPLEMENTS]->(op:Operator)
 WITH a.kind AS accelerator_kind, r.name AS runtime,
-     count(DISTINCT op) AS operators
+     count(DISTINCT op.id) AS operators
 WITH accelerator_kind, runtime, operators
 RETURN accelerator_kind, runtime, operators
 ORDER BY operators DESC
@@ -238,8 +238,87 @@ MATCH (d:Deployment)-[:ON_BOARD]->(b:Board)-[:HAS_SOC]->(s:SoC)
       -[:MADE_BY]->(vendor:Vendor)
 WHERE d.fits = 1
 RETURN vendor.name AS vendor, vendor.country AS country,
-       count(DISTINCT b) AS boards, count(d) AS deployments
+       count(DISTINCT b.id) AS boards, count(d) AS deployments
 ORDER BY deployments DESC
+""",
+    },
+    # ------------------------------------------------------------------
+    # EA13-EA16 run entirely on the REAL layer (provenance = "real"):
+    # ONNX Runtime kernel registrations and MLPerf Tiny v1.2 submissions.
+    # Their answers are checkable against the upstream sources.
+    # ------------------------------------------------------------------
+    {
+        "id": "EA13",
+        "title": "REAL: operators the CUDA provider does not implement",
+        "question": ("Which ai.onnx operators does ONNX Runtime implement on "
+                     "CPU but NOT on CUDA, so a GPU graph would break or fall "
+                     "back?"),
+        "why_graph": ("A real coverage gap between two execution providers, "
+                      "expressed as an anti-join over the same operator node. "
+                      "Answer is verifiable against onnxruntime's "
+                      "docs/OperatorKernels.md."),
+        "cypher": """
+MATCH (k:Kernel)-[:IMPLEMENTS]->(op:Operator)
+WHERE k.execution_provider = "CPUExecutionProvider" AND op.domain = "ai.onnx"
+OPTIONAL MATCH (k2:Kernel)-[:IMPLEMENTS]->(op)
+WHERE k2.execution_provider = "CUDAExecutionProvider"
+WITH op.name AS operator, op.category AS category, count(k2) AS cuda_kernels
+WHERE cuda_kernels = 0
+RETURN operator, category, cuda_kernels
+ORDER BY category
+LIMIT 20
+""",
+    },
+    {
+        "id": "EA14",
+        "title": "REAL: MLPerf Tiny throughput leaders",
+        "question": ("On the real MLPerf Tiny v1.2 submissions, which board "
+                     "posted the highest throughput for each benchmark task?"),
+        "why_graph": ("Joins measured submissions to the board, the reference "
+                      "model and the benchmark task in one linear path."),
+        "cypher": """
+MATCH (b:Board)<-[:ON_BOARD]-(d:Deployment)-[:MEASURES]->(m:Model)
+      -[:SOLVES]->(t:BenchmarkTask)
+WHERE d.provenance = "real"
+WITH t.name AS task, b.name AS board, d.throughput_inf_s AS throughput_inf_s,
+     d.accuracy AS accuracy
+RETURN task, board, throughput_inf_s, accuracy
+ORDER BY throughput_inf_s DESC
+LIMIT 12
+""",
+    },
+    {
+        "id": "EA15",
+        "title": "REAL: operators available on only one execution provider",
+        "question": ("Which operators are registered on exactly one ONNX "
+                     "Runtime execution provider -- i.e. using them pins you "
+                     "to that backend?"),
+        "why_graph": ("Portability risk as a degree count over the real kernel "
+                      "registration graph."),
+        "cypher": """
+MATCH (k:Kernel)-[:IMPLEMENTS]->(op:Operator)
+WHERE k.provenance = "real"
+WITH op.name AS operator, op.domain AS domain,
+     count(DISTINCT k.execution_provider) AS providers
+WHERE providers = 1
+RETURN operator, domain, providers
+ORDER BY operator
+LIMIT 20
+""",
+    },
+    {
+        "id": "EA16",
+        "title": "REAL vs SYNTHETIC: what is measured and what is generated",
+        "question": ("How much of this graph is real public data versus the "
+                     "generated fleet, per source?"),
+        "why_graph": ("Provenance is a first-class property, so the split is "
+                      "one aggregation -- not a README claim you have to "
+                      "trust."),
+        "cypher": """
+MATCH (k:Kernel)
+WITH k.provenance AS provenance, k.source AS source, count(k.id) AS kernels
+RETURN provenance, source, kernels
+ORDER BY kernels DESC
 """,
     },
 ]

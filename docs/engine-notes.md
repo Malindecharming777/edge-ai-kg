@@ -1,12 +1,18 @@
 # Engine notes -- Samyama Graph v1.7.0
 
-Behaviour observed while building this KG, on the OSS engine at v1.7.0
+Behaviour observed while building this KG, on the OSS engine at v1.7.0.
+**All nine are filed upstream** — see the tracking issue
+[samyama-graph#368](https://github.com/samyama-ai/samyama-graph/issues/368).
+
+Observed on the OSS engine at v1.7.0
 (`target/release/samyama --http-port 8080`). Every item here is load-bearing:
 the loader or the query catalog works around it. Verified 2026-08-14.
 
 ---
 
 ## 1. A trailing bound variable in a second MATCH clause is not joined
+
+> Filed upstream: [samyama-graph#360](https://github.com/samyama-ai/samyama-graph/issues/360)
 
 **Severity: correctness. Silently returns wrong rows.**
 
@@ -68,6 +74,8 @@ purpose-built 4-deployment fixture.
 
 ## 2. `RETURN DISTINCT` is a no-op
 
+> Filed upstream: [samyama-graph#361](https://github.com/samyama-ai/samyama-graph/issues/361)
+
 **Severity: correctness. Returns duplicate rows.**
 
 ```cypher
@@ -90,6 +98,8 @@ MATCH (b:Board) WITH b.form_factor AS f, b.year AS y, count(b) AS n RETURN f, y,
 ---
 
 ## 3. `ORDER BY` on a RETURN-introduced alias is silently ignored
+
+> Filed upstream: [samyama-graph#362](https://github.com/samyama-ai/samyama-graph/issues/362)
 
 **Severity: correctness. Returns an arbitrary subset when combined with LIMIT.**
 
@@ -129,6 +139,8 @@ catalog query uses a single sort key *and* that the result really is sorted.
 
 ## 4. `min()` mis-compares an integer sentinel against float values
 
+> Filed upstream: [samyama-graph#365](https://github.com/samyama-ai/samyama-graph/issues/365)
+
 ```cypher
 RETURN min(CASE WHEN v.precision = "int8" THEN v.size_kb ELSE 999999   END)  -- 999999  (wrong)
 RETURN min(CASE WHEN v.precision = "int8" THEN v.size_kb ELSE 999999.0 END)  -- 6.9     (right)
@@ -143,6 +155,8 @@ stored property type.**
 ---
 
 ## 5. Negated pattern predicates do not parse
+
+> Filed upstream: [samyama-graph#367](https://github.com/samyama-ai/samyama-graph/issues/367)
 
 `WHERE NOT (:Acc)-[:SUPPORTS]->(op)` is a parse error.
 
@@ -160,6 +174,8 @@ RETURN op.name
 
 ## 6. `CREATE CONSTRAINT ... REQUIRE ... IS UNIQUE` does not parse
 
+> Filed upstream: [samyama-graph#367](https://github.com/samyama-ai/samyama-graph/issues/367)
+
 Only `CREATE INDEX ON :Label(prop)` is accepted. Uniqueness of `id` is therefore
 a loader invariant, not an engine-enforced one -- ids are minted deterministically
 in `etl/generate.py`.
@@ -167,6 +183,8 @@ in `etl/generate.py`.
 ---
 
 ## 7. The tenant / graph argument is ignored on the OSS HTTP path
+
+> Filed upstream: [samyama-graph#366](https://github.com/samyama-ai/samyama-graph/issues/366)
 
 `client.query(cypher, "some_graph")` writes to, and reads from, the single
 `default` graph regardless of the name passed. Writing to `graph_a` is visible
@@ -182,6 +200,8 @@ before loading, rather than relying on tenant isolation.
 ---
 
 ## 8. Deleted property columns resurrect onto new nodes
+
+> Filed upstream: [samyama-graph#364](https://github.com/samyama-ai/samyama-graph/issues/364)
 
 **Severity: data integrity. Stale values from deleted data appear on new data.**
 
@@ -219,6 +239,37 @@ node's property *schema*. Changing values is fine; removing a property is not.
 would treat `null <> ""` as null and filter the row out. Use an explicit
 `IS NULL` / `IS NOT NULL` check instead of inequality when a property may be
 absent.
+
+---
+
+## 9. Aggregating a bare node variable over a multi-variable MATCH does not aggregate
+
+> Filed upstream: [samyama-graph#363](https://github.com/samyama-ai/samyama-graph/issues/363)
+
+**Severity: correctness. Returns N rows of `1` instead of one total.**
+
+```cypher
+MATCH (k:Kernel)-[:IMPLEMENTS]->(op:Operator)
+WHERE k.execution_provider = "CPUExecutionProvider"
+RETURN count(DISTINCT op) AS n
+-- 293 rows, each containing 1      <-- expected one row with the operator count
+```
+
+Aggregating a *property* works; aggregating the bare node variable does not:
+
+| Query | Result |
+|---|---|
+| `RETURN count(DISTINCT o)` over a 2-variable MATCH | **3 rows of `1`** |
+| `RETURN count(o)` over a 2-variable MATCH | **3 rows of `1`** |
+| `RETURN count(DISTINCT o.id)` | 1 row: `2` — correct |
+| `WITH count(DISTINCT o.id) AS n RETURN n` | 1 row: `2` — correct |
+| `RETURN count(DISTINCT n)` over a 1-variable MATCH | correct |
+
+The aggregate appears to group implicitly by the other bound variable instead of
+collapsing the whole result set.
+
+**Rule adopted here:** always aggregate a property, never a bare node variable.
+Every `count(DISTINCT x)` in the catalog is written `count(DISTINCT x.id)`.
 
 ---
 

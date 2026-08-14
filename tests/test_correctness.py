@@ -36,6 +36,10 @@ def loaded():
         pytest.skip(f"embedded Samyama engine unavailable: {exc}")
 
     fleet = gen.generate(seed=SEED, scale=SCALE, operators=ops)
+    # The catalog includes EA13-EA16, which run on the real public-source layer,
+    # so the fixture must load both layers or those queries come back empty.
+    from etl import real_layer
+    real_layer.build_real(fleet, ops)
     try:
         client.query("MATCH (n) DETACH DELETE n", GRAPH)
     except Exception:
@@ -134,14 +138,20 @@ def test_ea05_operator_coverage_matches_ground_truth(loaded):
 
 
 def test_cpu_covers_every_operator(loaded):
-    """Every SoC has an MCU-CPU that runs everything -- the fallback premise."""
+    """Every SoC has an MCU-CPU that runs everything -- the fallback premise.
+
+    Scoped to the ONNX catalog: the real ONNX Runtime layer adds operators from
+    other domains (com.microsoft, ai.onnx.ml) that the synthetic fleet never
+    models, and the synthetic CPU is not expected to cover those.
+    """
     client, fleet = loaded
+    catalog_ops = [o for o in fleet.nodes["Operator"] if o["source"] == "onnx"]
     _, recs = rows(client, """
 MATCH (a:Accelerator)<-[:RUNS_ON]-(k:Kernel)-[:IMPLEMENTS]->(op:Operator)
-WHERE a.kind = "MCU-CPU"
-RETURN count(DISTINCT op) AS n
+WHERE a.kind = "MCU-CPU" AND op.source = "onnx"
+RETURN count(DISTINCT op.id) AS n
 """)
-    assert recs[0][0] == len(fleet.nodes["Operator"])
+    assert recs[0][0] == len(catalog_ops)
 
 
 def test_ea06_blast_radius_matches_ground_truth(loaded):
@@ -168,7 +178,11 @@ def test_ea12_vendor_totals_match_ground_truth(loaded):
 
     expected: dict[str, int] = {}
     for deploy, board in board_of_deploy.items():
-        if idx["node"]["Deployment"][deploy]["fits"] != 1:
+        # EA12 filters on `fits`, which only synthetic deployments carry; the
+        # real MLPerf submissions have no such notion and are excluded.
+        if idx["node"]["Deployment"][deploy].get("fits") != 1:
+            continue
+        if board not in soc_of_board:
             continue
         vendor = vendor_of[soc_of_board[board]]
         name = idx["node"]["Vendor"][vendor]["name"]

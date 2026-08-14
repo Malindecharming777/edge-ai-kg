@@ -106,8 +106,8 @@ def main() -> None:
         "kernels on the other.")
     run(client, "Kernel coverage per accelerator class", """
 MATCH (a:Accelerator)<-[:RUNS_ON]-(k:Kernel)-[:IMPLEMENTS]->(op:Operator)
-WITH a.kind AS accelerator_kind, count(DISTINCT op) AS operators_covered,
-     count(DISTINCT a) AS accelerators
+WITH a.kind AS accelerator_kind, count(DISTINCT op.id) AS operators_covered,
+     count(DISTINCT a.id) AS accelerators
 RETURN accelerator_kind, accelerators, operators_covered
 ORDER BY operators_covered DESC
 """, "the ONNX operator list is real; the fleet is synthetic")
@@ -173,8 +173,8 @@ LIMIT 8
 MATCH (op:Operator)<-[:USES_OPERATOR]-(m:Model)<-[:VARIANT_OF]-(v:ModelVariant)
       <-[:OF_VARIANT]-(d:Deployment)-[:ON_BOARD]->(b:Board)
 WHERE op.name = "Conv" AND d.fits = 1
-RETURN op.name AS operator, count(DISTINCT d) AS deployments_at_risk,
-       count(DISTINCT b) AS boards_affected, count(DISTINCT m) AS models_affected
+RETURN op.name AS operator, count(DISTINCT d.id) AS deployments_at_risk,
+       count(DISTINCT b.id) AS boards_affected, count(DISTINCT m.id) AS models_affected
 """, "one hop out from a single node")
 
     # ---- Beat 6: the full chain --------------------------------------

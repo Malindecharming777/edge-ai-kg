@@ -89,8 +89,8 @@ def kernel_blast_radius(operator_name: str) -> list[dict]:
 MATCH (op:Operator)<-[:USES_OPERATOR]-(m:Model)<-[:VARIANT_OF]-(v:ModelVariant)
       <-[:OF_VARIANT]-(d:Deployment)-[:ON_BOARD]->(b:Board)
 WHERE op.name = {_q(operator_name)} AND d.fits = 1
-RETURN op.name AS operator, count(DISTINCT d) AS deployments_at_risk,
-       count(DISTINCT b) AS boards_affected, count(DISTINCT m) AS models_affected
+RETURN op.name AS operator, count(DISTINCT d.id) AS deployments_at_risk,
+       count(DISTINCT b.id) AS boards_affected, count(DISTINCT m.id) AS models_affected
 """)
 
 
@@ -101,8 +101,8 @@ def operator_coverage(accelerator_kind: str | None = None) -> list[dict]:
     return _rows(f"""
 MATCH (a:Accelerator)<-[:RUNS_ON]-(k:Kernel)-[:IMPLEMENTS]->(op:Operator)
 {where}
-WITH a.kind AS accelerator_kind, count(DISTINCT op) AS operators_covered,
-     count(DISTINCT a) AS accelerators
+WITH a.kind AS accelerator_kind, count(DISTINCT op.id) AS operators_covered,
+     count(DISTINCT a.id) AS accelerators
 RETURN accelerator_kind, accelerators, operators_covered
 ORDER BY operators_covered DESC
 """)

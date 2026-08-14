@@ -1,16 +1,59 @@
 # Data provenance
 
-This KG mixes one real public source with a synthetic hardware fleet. The split
-is deliberate and absolute -- read this before quoting any number from the graph.
+This KG mixes **three real public sources** with a synthetic hardware fleet. The
+split is deliberate, absolute, and **queryable**: every node carries
+`provenance` (`"real"` | `"synthetic"`) and `source`.
+
+```cypher
+MATCH (k:Kernel)
+WITH k.provenance AS provenance, k.source AS source, count(k.id) AS kernels
+RETURN provenance, source, kernels ORDER BY kernels DESC
+```
+
+At `--scale 1.0` the graph is **25,145 nodes / 76,291 edges**, of which
+**1,030 nodes are real** and 24,115 generated.
 
 ## Real
 
-**ONNX operator catalog** -- `data/onnx/operators.json`
+### 1. ONNX operator catalog -- `data/onnx/operators.json`
+
 Parsed from `docs/Operators.md` in [onnx/onnx](https://github.com/onnx/onnx),
-Apache-2.0. 205 operators with their domain, latest opset version, and revision
-count. Operator **names, domains and opset versions are real.** The `category`
-field is ours (`etl/onnx_catalog.py`), a coarse grouping used to decide which
-accelerator archetypes plausibly implement which operator.
+**Apache-2.0**. 205 operators with their domain, latest opset version, and
+revision count. Operator **names, domains and opset versions are real.** The
+`category` field is ours (`etl/onnx_catalog.py`), a coarse grouping used to
+decide which accelerator archetypes plausibly implement which operator.
+
+### 2. ONNX Runtime kernel registrations -- `data/onnxruntime/kernels.json`
+
+Parsed from `docs/OperatorKernels.md` in
+[microsoft/onnxruntime](https://github.com/microsoft/onnxruntime), **MIT**.
+**734 real kernel registrations** across three execution providers:
+
+| Execution provider | Registrations | Distinct operators |
+|---|---:|---:|
+| `CPUExecutionProvider` | 293 | 293 |
+| `CUDAExecutionProvider` | 236 | 236 |
+| `DmlExecutionProvider` | 205 | 205 |
+
+Each carries its real opset range (`13+`, `[6, 12]`) and the number of tensor
+types it supports. This is genuine ground truth for the central question of the
+graph -- *does this operator have a kernel on my target* -- and it adds 170
+operators from domains outside the base catalog (`com.microsoft`,
+`ai.onnx.ml`, `com.microsoft.nchwc`).
+
+### 3. MLPerf Tiny v1.2 results -- `data/mlperf-tiny/results.json`
+
+Parsed from `summary.csv` in
+[mlcommons/tiny_results_v1.2](https://github.com/mlcommons/tiny_results_v1.2),
+**Apache-2.0**. **73 measured submissions** in the closed division from 7
+organisations across 14 real boards, covering the four TinyML benchmarks
+(anomaly detection, image classification, keyword spotting, visual wake words),
+with real throughput, accuracy, and energy per inference where submitted (18 of
+73).
+
+These are **real vendors, real boards and real measurements** -- Qualcomm,
+Renesas, STMicroelectronics, Syntiant, Bosch and others. They are the only
+performance numbers in this graph that were measured rather than modelled.
 
 ## Synthetic
 
@@ -59,6 +102,24 @@ single `efficiency` scalar. It is good enough to make the *structural* questions
 ("what falls back to CPU, and roughly what does that cost?") behave sensibly.
 It is not a performance simulator, and the absolute numbers should never be
 quoted as achievable.
+
+### Keeping the layers apart
+
+`python -m etl.loader --layers real` loads **only** the public-source subgraph
+(1,235 nodes / 2,466 edges) -- no generated data at all. `--layers synthetic`
+does the inverse. The default loads both.
+
+Because provenance is a property, a query can always scope itself:
+
+```cypher
+MATCH (d:Deployment) WHERE d.provenance = "real" ...     -- measured only
+```
+
+Note that real and synthetic `Deployment` nodes carry **different metrics**:
+synthetic ones have `latency_ms` / `power_mw` / `fits` from the cost model
+below, real ones have `throughput_inf_s` / `accuracy` / `energy_uj_per_inf`
+as submitted. They are deliberately not unified -- averaging them together
+would be meaningless.
 
 ### What the synthetic data is for
 

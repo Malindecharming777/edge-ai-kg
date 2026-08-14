@@ -182,15 +182,22 @@ class Fleet:
     nodes: dict[str, list[dict]] = field(default_factory=dict)
     edges: list[tuple] = field(default_factory=list)
 
-    def add_nodes(self, label: str, rows: list[dict]) -> None:
-        """Store a copy of each row with internal `_`-prefixed keys stripped.
+    def add_nodes(self, label: str, rows: list[dict],
+                  provenance: str = "synthetic", source: str = "generated") -> None:
+        """Store a copy of each row, stripped of internal `_`-prefixed keys and
+        stamped with provenance.
 
         Copying matters: generators keep working with the original dicts after
         handing them over (e.g. attaching a `_chain` for later wiring), and
         without the copy those internals leak into the graph as node properties.
+
+        Every node carries `provenance` ("real" | "synthetic") and `source`, so
+        no query or viewer can confuse a measured value with a generated one.
         """
         self.nodes.setdefault(label, []).extend(
-            {k: v for k, v in row.items() if not k.startswith("_")} for row in rows
+            {**{k: v for k, v in row.items() if not k.startswith("_")},
+             "provenance": provenance, "source": source}
+            for row in rows
         )
 
     def add_edge(self, src_label, src_id, rel, tgt_label, tgt_id, props=None) -> None:
@@ -227,7 +234,10 @@ def generate(seed: int = DEFAULT_SEED, scale: float = 1.0,
         "since_version": o.since_version, "version_count": o.version_count,
         "category": o.category, "is_control_flow": 1 if o.is_control_flow else 0,
     } for o in ops]
-    fleet.add_nodes("Operator", op_rows)
+    # The ONNX operator catalog is REAL public data (Apache-2.0, onnx/onnx) --
+    # it is the one part of this generator that is not invented, so it must not
+    # be stamped synthetic.
+    fleet.add_nodes("Operator", op_rows, provenance="real", source="onnx")
     ops_by_cat: dict[str, list[Operator]] = {}
     for o in ops:
         ops_by_cat.setdefault(o.category, []).append(o)

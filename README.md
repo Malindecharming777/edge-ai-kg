@@ -9,7 +9,7 @@
 
 ![Edge AI KG — 12 questions answered](demo/edgeai-questions.gif)
 
-*The full [query catalog](benchmarks/queries.py) run end to end: each question, the Cypher it becomes, and the answer.*
+*The full [query catalog](benchmarks/queries.py) run end to end — each question, the Cypher it becomes, and the answer. Long-form: the whole run in one image, nothing scrolled off. Re-record with [`scripts/record_gif.sh`](scripts/record_gif.sh).*
 
 ---
 
@@ -168,6 +168,7 @@ schema/       edge_ai_kg.cypher — indexes and documented relationship shapes
 benchmarks/   the 12-query catalog + runner
 mcp_server/   7 MCP tools shaped around deployment questions
 demo/         two walkthroughs (question-driven + 6-beat story) + recorded gif
+scripts/      record_gif.sh — long-form demo recording
 docs/         schema, data provenance, engine notes
 DATASET_CARD.md  HF-style card: structure, provenance, intended + out-of-scope uses
 tests/        36 tests: parsing, fleet invariants, query correctness

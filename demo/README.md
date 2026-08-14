@@ -32,19 +32,27 @@ python -m demo.demo --url http://127.0.0.1:8080
 
 ## Re-recording the GIF
 
-Requires [`asciinema`](https://asciinema.org) and
-[`agg`](https://github.com/asciinema/agg) (`cargo install --git
-https://github.com/asciinema/agg`).
+The GIF is **long-form**: a tall terminal so the entire 12-question run renders
+in one vertical image with nothing scrolling off — the convention shared with
+`samyama-graph/case_studies/_lib/record_gif.sh`. 100 columns at font-size 18
+gives the 1105 px width every other case-study and `-kg` GIF uses; the height
+is whatever the run needs (currently 8,392 px).
 
 ```bash
-asciinema rec --overwrite --cols 100 --rows 34 --idle-time-limit 2.0 \
-  -c "python -m demo.questions --url http://127.0.0.1:8080" \
-  demo/edgeai-questions.cast
-
-agg --theme github-dark --font-size 15 --line-height 1.35 \
-    --speed 1.4 --idle-time-limit 1.2 --fps-cap 12 --last-frame-duration 4 \
-    demo/edgeai-questions.cast demo/edgeai-questions.gif
+scripts/record_gif.sh                      # defaults: demo.questions -> demo/edgeai-questions.gif
+GIF_ROWS=400 scripts/record_gif.sh         # taller terminal
+SG_URL= scripts/record_gif.sh              # record against the embedded engine
+PYTHON=.venv/bin/python scripts/record_gif.sh
 ```
 
+The script measures the demo's output first and raises `GIF_ROWS` if the run is
+taller than the terminal, since a short terminal silently scrolls the opening
+off the top.
+
+Requires [`asciinema`](https://asciinema.org) (`pip install asciinema`) and
+[`agg`](https://github.com/asciinema/agg)
+(`cargo install --git https://github.com/asciinema/agg` — note the `agg` on
+crates.io is an unrelated library with no binary).
+
 The `.cast` is committed alongside the `.gif`, so the GIF can be re-rendered at
-different sizes or themes without re-running the demo.
+a different size or theme without re-running the demo.

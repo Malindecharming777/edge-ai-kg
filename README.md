@@ -1,89 +1,167 @@
-# {{KG_NAME}} Knowledge Graph
+# Edge AI Deployment Knowledge Graph
 
-**{{N}} nodes. {{M}} edges. {{ONE_LINE_SCOPE}} from {{K}} sources.**
-
-![{{KG_NAME}} demo](demo/{{KG_SLUG}}.gif)
+**24,115 nodes. 73,825 edges. Boards, kernels and neural networks in one graph — so you can ask what actually runs on your silicon.**
 
 > Part of the **Samyama** ecosystem — loaded into and queried via the graph engine at [samyama-ai/samyama-graph](https://github.com/samyama-ai/samyama-graph).
-> This repo holds the loader and source-data specifics for the KG.
+> This repo holds the loader, the generator and the query catalog for the KG.
 
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-blue" alt="License"></a>
 
 ---
 
-We loaded {{SOURCES}} into one graph, then asked:
+## The question this exists to answer
 
-> *"{{EXAMPLE_QUESTION}}"*
+Deploying a model onto custom edge hardware fails in a specific, boring way:
+**one operator has no kernel on your NPU, silently falls back to the CPU, and
+your latency budget is gone.** Finding out which operator, on which board,
+under which runtime, is a graph traversal — a model's operator surface joined
+against a kernel library joined against a hardware fleet.
 
 ```cypher
-MATCH (a:{{NodeA}})-[:{{REL}}]->(b:{{NodeB}})
-RETURN b.name, count(a) AS n
-ORDER BY n DESC LIMIT 5
+MATCH (m:Model)-[:USES_OPERATOR]->(op:Operator)
+WHERE m.name = "depthwise-cnn-neuro-043"
+OPTIONAL MATCH (k:Kernel)-[:IMPLEMENTS]->(op), (k)-[:RUNS_ON]->(a:Accelerator)
+WHERE a.kind = "NPU-Lite"
+WITH op, count(k) AS kernels
+WHERE kernels = 0
+RETURN op.name AS operator, op.category AS category, op.since_version AS opset
+ORDER BY category, operator
 ```
 
-**One query across every source.** Powered by [Samyama Graph](https://github.com/samyama-ai/samyama-graph).
+```
+operator            category       opset
+Col2Im              convolution    18
+HardSwish           activation     22
+PRelu               activation     16
+LayerNormalization  normalization  17
+RMSNormalization    normalization  23
+AveragePool         spatial        22
+Resize              spatial        19
+...                                          17 rows in 44 ms
+```
+
+Seventeen operators on the CPU instead of the NPU — including `AveragePool` and
+`LayerNormalization`, which you would have assumed were accelerated.
+**One query, no ETL.**
+Flatten this into JSON and it becomes a script you maintain forever.
 
 ---
 
-## Demo
+## What is in it
 
-A narrated walkthrough on a fast, real subset.
+Two spines that meet in the middle:
 
-```bash
-python -m demo.demo                                                     # run live
-asciinema rec --overwrite --cols 92 --rows 32 --idle-time-limit 2.0 \
-  -c "bash -c 'python -m demo.demo'" demo/{{KG_SLUG}}.cast              # re-record
-agg demo/{{KG_SLUG}}.cast demo/{{KG_SLUG}}.gif                          # convert to gif
+```
+Vendor <- SoC <- Board                        Sensor -> SignalStage -> ... -> Model
+           |                                                                   |
+           +-> Accelerator <- Kernel -> Operator <---- USES_OPERATOR -----------+
+                    ^            |                                             |
+                 TARGETS    PROVIDED_BY                                  ModelVariant
+                    +--------- Runtime                                         |
+                                                                          Deployment -> Board
 ```
 
----
+**Hardware**: 8 vendors, 40 SoCs, 86 accelerators (MCU-CPU / DSP / NPU-Lite /
+NPU-Pro / GPU-Embedded), 120 boards, 7 runtimes.
+**Software**: 205 real ONNX operators, 21,548 kernels, 60 models, 240 quantized
+variants, 1,440 measured deployments.
+**Clinical**: 14 biosignal sensors, 16 DSP stages, 18 clinical tasks, 12
+datasets, 6 certifications.
 
-## Schema
+Full detail in [`docs/schema.md`](docs/schema.md).
 
-**Node labels** -- {{NODE_LABELS}}
-**Edge types** -- {{EDGE_TYPES}}
-**Data sources** -- {{SOURCES}}
+## Data: what's real, what's synthetic
 
-See [`schema/{{KG_SLUG}}_kg.cypher`](schema/{{KG_SLUG}}_kg.cypher) for the full schema.
+| | |
+|---|---|
+| **Real** | The **ONNX operator catalog** — 205 operators with domains and opset versions, parsed from [onnx/onnx](https://github.com/onnx/onnx) (Apache-2.0). |
+| **Synthetic** | **Everything else**, generated deterministically from a seed. Vendor, board and SoC names are deliberately fictional (`Corvid Silicon`, `Tessera Labs`, …). |
 
-## Quick Start
+No number here is a claim about any real product — attaching invented latency
+figures to real part numbers would produce a dataset that looks authoritative
+and isn't. Deployment metrics are *derived* from a documented cost model rather
+than drawn at random, so a board missing a kernel really does pay for it.
+Read [`docs/data-provenance.md`](docs/data-provenance.md) before quoting
+anything.
+
+## Quick start
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -e .
+pip install -e ".[dev]"
 
-python -m etl.download_data          # fetch source data into data/
-python -m etl.loader                 # build + load the graph
-python -m mcp_server.server          # expose the KG over MCP
-pytest                               # run tests
+python -m etl.download_data     # fetch ONNX catalog + generate the fleet
+python -m demo.demo             # narrated walkthrough, in-process, no server
 ```
+
+`demo.demo` runs the engine **embedded** — no server, no Docker, nothing to
+start. To use a running server instead:
+
+```bash
+# from the samyama-graph checkout
+./target/release/samyama --http-port 8080
+
+python -m etl.loader --url http://127.0.0.1:8080        # ~25s for 24K/74K
+python -m benchmarks.run_benchmark --url http://127.0.0.1:8080
+python -m mcp_server.server                             # expose over MCP
+pytest                                                  # 33 tests
+```
+
+Scale the fleet with `--scale` (`1.0` ≈ 24K nodes) and change the world with
+`--seed`. Same seed, same graph, every time.
+
+## The query catalog
+
+12 queries in [`benchmarks/queries.py`](benchmarks/queries.py), each recording
+the question it answers and why it's awkward without a graph. All 12 return
+rows; median 26 ms, slowest 117 ms.
+
+| id | Question |
+|---|---|
+| EA01 | Which operators fall back to CPU for this model on this accelerator? |
+| EA02 | Which operators have the fewest kernels fleet-wide? |
+| EA03 | Which boards meet this clinical task's latency budget? |
+| EA04 | What does int8 quantization unlock that fp32 can't fit? |
+| EA05 | How much of the ONNX surface does each accelerator class cover? |
+| EA06 | If a vendor drops one kernel, what breaks? |
+| EA07 | Trace electrode → DSP pipeline → model → board |
+| EA08 | Which runtime gives the widest coverage per accelerator? |
+| EA09 | Which battery-powered boards are certified for regulated tasks? |
+| EA10 | What does CPU fallback actually cost in latency? |
+| EA11 | Which models are CPU-only no matter which board you pick? |
+| EA12 | How concentrated is the fleet on one silicon vendor? |
+
+## Engine notes
+
+This KG is built against **Samyama Graph v1.7.0 (OSS)**. Building it surfaced
+several engine behaviours that the loader and queries work around — including
+two that **silently return wrong rows** rather than erroring:
+
+- a bound variable re-used in a second `MATCH` clause is not always joined, producing a cartesian product;
+- `RETURN DISTINCT` is a no-op;
+- `min()` mis-compares an int sentinel against float values;
+- negated pattern predicates and `CREATE CONSTRAINT` don't parse;
+- the tenant/graph argument is ignored on the OSS HTTP path.
+
+Each is documented with a minimal reproduction and the workaround used in
+[`docs/engine-notes.md`](docs/engine-notes.md). Because of these,
+[`tests/test_correctness.py`](tests/test_correctness.py) validates query
+**results** against ground truth computed in Python — a query that runs and
+returns plausible rows is not evidence that it is right.
 
 ## Structure
+
 ```
-etl/          # downloaders + graph loader
-schema/       # cypher schema / ontology
-mcp_server/   # MCP server exposing the KG
-demo/         # narrated demo (cast + gif)
-benchmarks/   # benchmark queries
-docs/         # design + source notes
-tests/        # pytest
-pyproject.toml
+etl/          onnx_catalog.py (real data) + generate.py (synthetic) + loader.py
+schema/       edge_ai_kg.cypher — indexes and documented relationship shapes
+benchmarks/   the 12-query catalog + runner
+mcp_server/   7 MCP tools shaped around deployment questions
+demo/         narrated walkthrough
+docs/         schema, data provenance, engine notes
+tests/        33 tests: parsing, fleet invariants, query correctness
 ```
 
----
-## Using this template
-1. Click **Use this template** (this repo is a Gitea template) and name your repo `<domain>-kg`.
-2. Find-and-replace the `{{...}}` placeholders (KG_NAME, KG_SLUG, NODE_LABELS, EDGE_TYPES, SOURCES, N, M, K, example query).
-3. Rename `schema/template_kg.cypher` -> `schema/<slug>_kg.cypher` and fill in real node/edge definitions.
-4. Implement the `etl/` downloaders + loader and the `mcp_server/` tools for your domain.
-5. Add the repo to the **samyama-graph** team.
+## License
 
-### Placeholder reference
-| Placeholder | Meaning |
-|-------------|---------|
-| `{{KG_NAME}}` | Human name, e.g. "Drug Interactions" |
-| `{{KG_SLUG}}` | file/id slug, e.g. "druginteractions" |
-| `{{NODE_LABELS}}` / `{{EDGE_TYPES}}` | comma-separated schema |
-| `{{SOURCES}}` | data sources + licenses |
-| `{{N}}`/`{{M}}`/`{{K}}` | node/edge/source counts |
-| `{{EXAMPLE_QUESTION}}` / `{{NodeA}}`/`{{REL}}`/`{{NodeB}}` | hero query |
+Apache-2.0. The ONNX operator catalog is Apache-2.0 from the ONNX project;
+everything else is generated.

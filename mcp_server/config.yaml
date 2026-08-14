@@ -1,7 +1,14 @@
 server:
-  name: {{KG_SLUG}}-kg
-  description: Query the {{KG_NAME}} knowledge graph
+  name: edge-ai-kg
+  description: >-
+    Query the Edge AI deployment knowledge graph -- boards, SoCs, accelerators,
+    runtimes, ONNX operator kernels, quantized model variants and on-device
+    biosignal pipelines.
 graph:
+  # NOTE: on OSS v1.7.0 the tenant argument is ignored and everything lives in
+  # `default`. See docs/engine-notes.md, item 5.
   host: 127.0.0.1
   port: 8080
-  tenant: {{KG_SLUG}}
+  graph: default
+  # Omit `url` to run the engine in-process (embedded) instead of over HTTP.
+  url: http://127.0.0.1:8080

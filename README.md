@@ -22,27 +22,32 @@ MATCH (m:Model)-[:USES_OPERATOR]->(op:Operator)
 WHERE m.name = "depthwise-cnn-neuro-043"
 OPTIONAL MATCH (k:Kernel)-[:IMPLEMENTS]->(op), (k)-[:RUNS_ON]->(a:Accelerator)
 WHERE a.kind = "NPU-Lite"
-WITH op, count(k) AS kernels
+WITH op.name AS operator, op.category AS category,
+     op.since_version AS opset, count(k) AS kernels
 WHERE kernels = 0
-RETURN op.name AS operator, op.category AS category, op.since_version AS opset
-ORDER BY category, operator
+RETURN operator, category, opset
+ORDER BY category
 ```
 
 ```
 operator            category       opset
-Col2Im              convolution    18
-HardSwish           activation     22
 PRelu               activation     16
+HardSwish           activation     22
+ThresholdedRelu     activation     22
+Col2Im              convolution    18
+Cos                 elementwise    22
 LayerNormalization  normalization  17
 RMSNormalization    normalization  23
-AveragePool         spatial        22
-Resize              spatial        19
-...                                          17 rows in 44 ms
+ReduceL1            reduction      18
+...                                          17 rows in 24 ms
 ```
 
-Seventeen operators on the CPU instead of the NPU — including `AveragePool` and
+Seventeen operators on the CPU instead of the NPU — including `PRelu` and
 `LayerNormalization`, which you would have assumed were accelerated.
 **One query, no ETL.**
+
+(The projection goes through `WITH` and sorts on a single key deliberately —
+see [engine notes](docs/engine-notes.md).)
 Flatten this into JSON and it becomes a script you maintain forever.
 
 ---
@@ -61,9 +66,9 @@ Vendor <- SoC <- Board                        Sensor -> SignalStage -> ... -> Mo
                                                                           Deployment -> Board
 ```
 
-**Hardware**: 8 vendors, 40 SoCs, 86 accelerators (MCU-CPU / DSP / NPU-Lite /
+**Hardware**: 8 vendors, 40 SoCs, 85 accelerators (MCU-CPU / DSP / NPU-Lite /
 NPU-Pro / GPU-Embedded), 120 boards, 7 runtimes.
-**Software**: 205 real ONNX operators, 21,548 kernels, 60 models, 240 quantized
+**Software**: 205 real ONNX operators, 21,844 kernels, 60 models, 240 quantized
 variants, 1,440 measured deployments.
 **Clinical**: 14 biosignal sensors, 16 DSP stages, 18 clinical tasks, 12
 datasets, 6 certifications.
@@ -81,8 +86,10 @@ No number here is a claim about any real product — attaching invented latency
 figures to real part numbers would produce a dataset that looks authoritative
 and isn't. Deployment metrics are *derived* from a documented cost model rather
 than drawn at random, so a board missing a kernel really does pay for it.
-Read [`docs/data-provenance.md`](docs/data-provenance.md) before quoting
-anything.
+Read the **[dataset card](DATASET_CARD.md)** — which covers intended and
+out-of-scope uses, known limitations and biases — plus
+[`docs/data-provenance.md`](docs/data-provenance.md) for the cost model, before
+quoting anything.
 
 ## Quick start
 
@@ -104,7 +111,7 @@ start. To use a running server instead:
 python -m etl.loader --url http://127.0.0.1:8080        # ~25s for 24K/74K
 python -m benchmarks.run_benchmark --url http://127.0.0.1:8080
 python -m mcp_server.server                             # expose over MCP
-pytest                                                  # 33 tests
+pytest                                                  # 36 tests
 ```
 
 Scale the fleet with `--scale` (`1.0` ≈ 24K nodes) and change the world with
@@ -114,7 +121,7 @@ Scale the fleet with `--scale` (`1.0` ≈ 24K nodes) and change the world with
 
 12 queries in [`benchmarks/queries.py`](benchmarks/queries.py), each recording
 the question it answers and why it's awkward without a graph. All 12 return
-rows; median 26 ms, slowest 117 ms.
+rows; median 15 ms, slowest 71 ms.
 
 | id | Question |
 |---|---|
@@ -158,7 +165,8 @@ benchmarks/   the 12-query catalog + runner
 mcp_server/   7 MCP tools shaped around deployment questions
 demo/         narrated walkthrough
 docs/         schema, data provenance, engine notes
-tests/        33 tests: parsing, fleet invariants, query correctness
+DATASET_CARD.md  HF-style card: structure, provenance, intended + out-of-scope uses
+tests/        36 tests: parsing, fleet invariants, query correctness
 ```
 
 ## License

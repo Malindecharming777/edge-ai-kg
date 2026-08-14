@@ -183,7 +183,15 @@ class Fleet:
     edges: list[tuple] = field(default_factory=list)
 
     def add_nodes(self, label: str, rows: list[dict]) -> None:
-        self.nodes.setdefault(label, []).extend(rows)
+        """Store a copy of each row with internal `_`-prefixed keys stripped.
+
+        Copying matters: generators keep working with the original dicts after
+        handing them over (e.g. attaching a `_chain` for later wiring), and
+        without the copy those internals leak into the graph as node properties.
+        """
+        self.nodes.setdefault(label, []).extend(
+            {k: v for k, v in row.items() if not k.startswith("_")} for row in rows
+        )
 
     def add_edge(self, src_label, src_id, rel, tgt_label, tgt_id, props=None) -> None:
         self.edges.append((src_label, src_id, rel, tgt_label, tgt_id, props))

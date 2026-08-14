@@ -101,3 +101,25 @@ def test_fallback_fraction_is_a_fraction(fleet):
     for d in fleet.nodes["Deployment"]:
         assert 0.0 <= d["fallback_fraction"] <= 1.0
         assert d["latency_ms"] > 0
+
+
+def test_no_internal_fields_leak_into_node_properties(fleet):
+    """Generator internals are `_`-prefixed; none may reach the graph.
+
+    Regression: Sensor nodes were handed to add_nodes() and then mutated with a
+    `_chain` field, which serialised into the graph as a stringified blob.
+    """
+    for label, rows in fleet.nodes.items():
+        for row in rows:
+            leaked = [k for k in row if k.startswith("_")]
+            assert not leaked, f"{label} leaks internal fields: {leaked}"
+
+
+def test_node_property_values_are_scalars(fleet):
+    """Cypher properties must be scalars -- a dict or list silently stringifies."""
+    for label, rows in fleet.nodes.items():
+        for row in rows:
+            for key, value in row.items():
+                assert isinstance(value, (str, int, float, bool)) or value is None, (
+                    f"{label}.{key} is {type(value).__name__}, not a scalar"
+                )

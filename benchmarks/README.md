@@ -17,10 +17,10 @@ Omit `--url` to run against an in-process embedded engine.
 
 Samyama Graph v1.7.0 OSS, 24,115 nodes / 73,825 edges, server on localhost:
 
-**12/12 queries return rows, 0 empty, 0 failed. Median 26 ms, slowest 117 ms.**
+**12/12 queries return rows, 0 empty, 0 failed. Median 15 ms, slowest 71 ms.**
 
-The slow end (EA08 at ~117 ms, EA11 at ~101 ms) are the queries that touch all
-21,548 kernels; the anti-joins that anchor on a single model run in 30-40 ms.
+The slow end are the queries that touch all 21,844 kernels (EA08, EA11); the
+anti-joins that anchor on a single model run in 30-40 ms.
 
 ## A warning about "it returned rows"
 

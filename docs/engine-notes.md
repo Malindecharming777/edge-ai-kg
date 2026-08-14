@@ -181,6 +181,47 @@ before loading, rather than relying on tenant isolation.
 
 ---
 
+## 8. Deleted property columns resurrect onto new nodes
+
+**Severity: data integrity. Stale values from deleted data appear on new data.**
+
+```cypher
+CREATE (:GhostProp {id: "a", ghost: "LEAKED"});
+MATCH (n:GhostProp) DETACH DELETE n;          -- count is now 0
+CREATE (:GhostProp {id: "b"});                -- note: no `ghost` property
+MATCH (n:GhostProp) RETURN n.id, n.ghost;     -- ["b", "LEAKED"]   <-- expected null
+```
+
+A node created without a property inherits the value the *previous* generation
+of nodes had for that column. A global `MATCH (n) DETACH DELETE n` does not help
+either -- the columnar property store survives the delete.
+
+We hit this for real: an internal `_chain` field briefly leaked onto `Sensor`
+nodes, and after the generator was fixed and the graph reloaded, **every Sensor
+still reported the stale blob** even though the source data no longer contained
+it. It looked like the fix had failed.
+
+**Workaround:** `DETACH DELETE` is not a reset. To genuinely reset a graph,
+stop the server and start it against a fresh data directory:
+
+```bash
+pkill -f '[t]arget/release/samyama'
+rm -rf <data-dir>/samyama_data
+samyama --http-port 8080
+```
+
+**Corollary:** never rely on `DETACH DELETE` between experiments that change a
+node's property *schema*. Changing values is fine; removing a property is not.
+
+### 8b. `<>` against a null property matches
+
+`WHERE s._chain <> ""` returns rows where `s._chain` is null. Standard Cypher
+would treat `null <> ""` as null and filter the row out. Use an explicit
+`IS NULL` / `IS NOT NULL` check instead of inequality when a property may be
+absent.
+
+---
+
 ## What works well
 
 Everything the catalog depends on, other than the above:

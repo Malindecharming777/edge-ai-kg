@@ -1,6 +1,6 @@
 # Edge AI KG -- schema
 
-15 node labels, 21 edge types. At `--scale 1.0`: **23,820 nodes, 72,935 edges**
+15 node labels, 21 edge types. At `--scale 1.0`: **24,115 nodes, 73,825 edges**
 (seed `20260814`). See [`data-provenance.md`](data-provenance.md) for what is
 real and what is synthetic, and [`engine-notes.md`](engine-notes.md) for the
 v1.7.0 behaviours the queries work around.
@@ -12,12 +12,12 @@ and what does it cost me when it can't?**
 
 | Label | Count | Key fields |
 |---|---:|---|
-| `Kernel` | 21,548 | id, name, efficiency, is_fallback |
+| `Kernel` | 21,844 | id, name, efficiency, is_fallback |
 | `Deployment` | 1,440 | id, latency_ms, power_mw, energy_mj, memory_kb, fallback_op_count, fallback_fraction, accelerator_kind, fits |
 | `ModelVariant` | 240 | id, name, precision, size_kb, accuracy, format |
 | `Operator` | 205 | id, name, domain, since_version, version_count, category, is_control_flow |
 | `Board` | 120 | id, name, form_factor, price_usd, power_budget_mw, ram_kb, flash_kb, year, battery_powered |
-| `Accelerator` | 86 | id, name, kind, gops_int8, sram_kb, clock_mhz, opset_ceiling, energy_factor |
+| `Accelerator` | 85 | id, name, kind, gops_int8, sram_kb, clock_mhz, opset_ceiling, energy_factor |
 | `Model` | 60 | id, name, family, task, params_k, macs_m |
 | `SoC` | 40 | id, name, process_nm, cpu_arch, cpu_mhz, cores |
 | `ClinicalTask` | 18 | id, name, category, latency_budget_ms, min_sensitivity |
@@ -36,26 +36,26 @@ label. Uniqueness is a loader invariant -- this engine does not parse
 
 | Edge | From -> To | Count | Meaning |
 |---|---|---:|---|
-| `IMPLEMENTS` | Kernel -> Operator | 21,548 | this kernel implements this operator |
-| `RUNS_ON` | Kernel -> Accelerator | 21,548 | on this compute unit |
-| `PROVIDED_BY` | Kernel -> Runtime | 21,548 | shipped by this runtime |
+| `IMPLEMENTS` | Kernel -> Operator | 21,844 | this kernel implements this operator |
+| `RUNS_ON` | Kernel -> Accelerator | 21,844 | on this compute unit |
+| `PROVIDED_BY` | Kernel -> Runtime | 21,844 | shipped by this runtime |
 | `OF_VARIANT` | Deployment -> ModelVariant | 1,440 | what was deployed |
 | `ON_BOARD` | Deployment -> Board | 1,440 | where |
 | `VIA_RUNTIME` | Deployment -> Runtime | 1,440 | through which runtime |
 | `USES_ACCELERATOR` | Deployment -> Accelerator | 1,440 | on which compute unit |
-| `USES_OPERATOR` | Model -> Operator `{count}` | 1,061 | model's operator surface |
-| `TARGETS` | Runtime -> Accelerator | 433 | runtime can target this unit |
+| `USES_OPERATOR` | Model -> Operator `{count}` | 1,069 | model's operator surface |
+| `TARGETS` | Runtime -> Accelerator | 426 | runtime can target this unit |
 | `VARIANT_OF` | ModelVariant -> Model | 240 | fp32 / fp16 / int8 / int4 |
 | `MADE_BY` | Board\|SoC -> Vendor | 160 | supply chain |
 | `HAS_SOC` | Board -> SoC | 120 | board's chip |
-| `CERTIFIED_FOR` | Board -> Certification | 105 | regulatory posture |
-| `HAS_ACCELERATOR` | SoC -> Accelerator | 86 | chip's compute units |
-| `TRAINED_ON` | Model -> Dataset | 83 | provenance |
+| `CERTIFIED_FOR` | Board -> Certification | 104 | regulatory posture |
+| `HAS_ACCELERATOR` | SoC -> Accelerator | 85 | chip's compute units |
+| `TRAINED_ON` | Model -> Dataset | 82 | provenance |
 | `SOLVES` | Model -> ClinicalTask | 60 | clinical purpose |
 | `PRECEDES` | SignalStage -> Model | 60 | pipeline feeds model |
 | `REQUIRES_SENSOR` | ClinicalTask -> Sensor | 51 | required modality |
-| `NEXT_STAGE` | SignalStage -> SignalStage | 37 | DSP chain |
-| `GOVERNED_BY` | ClinicalTask -> Certification | 21 | regulatory requirement |
+| `NEXT_STAGE` | SignalStage -> SignalStage | 40 | DSP chain |
+| `GOVERNED_BY` | ClinicalTask -> Certification | 22 | regulatory requirement |
 | `FEEDS` | Sensor -> SignalStage | 14 | front of the pipeline |
 
 ## The two spines

